@@ -17,7 +17,7 @@ class GridWorldEnv(gym.Env):
         self.window_height = 1100
         self.render_mode = render_mode
 
-        self.observation_space = spaces.Box(low=np.array([0,0,0,0,0,0]), high=np.array([self.width-1, self.height-1,1,1,1,1]), dtype=np.int32)
+        self.observation_space = spaces.Box(low=np.array([0,0,0,0,0,0,0]), high=np.array([self.width-1, self.height-1,1,1,1,1,32]), dtype=np.int32)
 
         self.action_space = spaces.Discrete(4)
 
@@ -52,6 +52,7 @@ class GridWorldEnv(gym.Env):
         super().reset(seed=seed)
 
         self.agent_pos = np.array([0,21])
+        self.ghost_pos = np.array([20,21])
 
         self.steps = 0
 
@@ -85,12 +86,21 @@ class GridWorldEnv(gym.Env):
 
         self.path.append((int(self.agent_pos[0]), int(self.agent_pos[1])))
 
-        terminated = np.array_equal(self.agent_pos, self.goal)
         #distance = np.linalg.norm(self.agent_pos - self.goal)
         #reward = -0.1 * distance
 
-        if terminated:
+        self.move_ghost()
+
+        caught = np.array_equal(self.ghost_pos, self.agent_pos)
+        reached_goal = np.array_equal(self.agent_pos, self.goal)
+
+        terminated = (caught or reached_goal)
+
+
+        if reached_goal:
             reward = 10
+        elif caught:
+            reward = -10
         else:
             reward = -0.01
         
@@ -126,7 +136,10 @@ class GridWorldEnv(gym.Env):
             pygame.draw.rect(canvas, (0, 0, 0), pygame.Rect(wall[0]*cell_size, wall[1]*cell_size, cell_size, cell_size))
 
         #Draw goal
-            pygame.draw.rect(canvas, (0, 255, 0), pygame.Rect(self.goal[0]*cell_size, self.goal[1]*cell_size, cell_size, cell_size))
+        pygame.draw.rect(canvas, (0, 255, 0), pygame.Rect(self.goal[0]*cell_size, self.goal[1]*cell_size, cell_size, cell_size))
+
+        #Draw ghost
+        pygame.draw.circle(canvas, (255, 0, 0), (int(self.ghost_pos[0]*cell_size + cell_size/2), int(self.ghost_pos[1]*cell_size * cell_size/2)), int(cell_size/3))
 
         #Draw agent
         pygame.draw.circle(canvas, (0, 0, 255), (int(self.agent_pos[0]*cell_size + cell_size/2), int(self.agent_pos[1]*cell_size + cell_size/2)), int(cell_size / 3))
@@ -162,7 +175,7 @@ class GridWorldEnv(gym.Env):
         x = int(self.agent_pos[0])
         y = int(self.agent_pos[1])
 
-        return np.array([x,y, self.is_wall(x,y+1),self.is_wall(x,y-1),self.is_wall(x+1,y),self.is_wall(x-1,y)])
+        return np.array([x,y, self.is_wall(x,y+1),self.is_wall(x,y-1),self.is_wall(x+1,y),self.is_wall(x-1,y), len(self.ghost_path)])
 
     def get_neighbors(self, position):
         x, y = position
@@ -203,3 +216,13 @@ class GridWorldEnv(gym.Env):
                     queue.append(neighbor)
 
         return []
+    
+    def move_ghost(self):
+        start = (int(self.ghost_pos[0]),int(self.ghost_pos[1]))
+        goal = (int(self.agent_pos[0]),int(self.agent_pos(1)))
+
+        self.ghost_path = self.bfs_path(start, goal)
+
+        if len(self.ghost_path) > 0:
+            next_position = self.ghost_path[0]
+            self.ghost_pos = np.array(next_position)
