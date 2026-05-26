@@ -175,3 +175,31 @@ class GridWorldEnv(gym.Env):
                 valid.append((nx,ny))
 
         return valid
+    
+    def bfs_path(self, start, goal):
+        queue = deque()
+        queue.append(start)
+        visited = set()
+        visited.add(start)
+        parent = {}
+
+        while queue:
+            current = queue.popleft()
+
+            if current == goal:
+                path = []
+
+                while current != start:
+                    path.append(current)
+                    current = parent[current]
+
+                path.reverse()
+                return path
+            
+            for neighbor in self.get_neighbors(current):
+                if neighbor not in visited:
+                    visited.add(neighbor)
+                    parent[neighbor] = current
+                    queue.append(neighbor)
+
+        return []
