@@ -17,7 +17,7 @@ class GridWorldEnv(gym.Env):
         self.window_height = 1100
         self.render_mode = render_mode
 
-        self.observation_space = spaces.Box(low=np.array([0,0,0,0,0,0,0]), high=np.array([self.width-1, self.height-1,1,1,1,1,32]), dtype=np.int32)
+        self.observation_space = spaces.Box(low=np.array([0,0,0,0,0,0,0,0]), high=np.array([self.width-1, self.height-1,1,1,1,1,25,21]), dtype=np.int32)
 
         self.action_space = spaces.Discrete(4)
 
@@ -47,6 +47,7 @@ class GridWorldEnv(gym.Env):
         self.clock = None
 
         self.path = []
+        self.ghost_path = []
 
     def reset(self, seed=None, options=None):
         super().reset(seed=seed)
@@ -106,7 +107,7 @@ class GridWorldEnv(gym.Env):
         
         truncated = self.steps >= self.max_steps
 
-        print("Current: ", self.agent_pos, "Action: ", action, "Candidate: ", candidate_position)
+        print("Current: ", self.agent_pos, "Action: ", action, "Candidate: ", candidate_position, "Ghost Distance: ", len(self.ghost_path))
         if candidate_position in self.walls:
             print("Wall collision")
 
@@ -131,6 +132,10 @@ class GridWorldEnv(gym.Env):
         for position in self.path:
             pygame.draw.rect(canvas, (200, 220, 255), pygame.Rect(position[0]*cell_size, position[1]*cell_size, cell_size, cell_size))
 
+         #Draw ghost path
+        #for position in self.ghost_path:
+            #pygame.draw.rect(canvas, (255, 220, 200), pygame.Rect(position[0]*cell_size, position[1]*cell_size, cell_size, cell_size))
+
         #Draw walls
         for wall in self.walls:
             pygame.draw.rect(canvas, (0, 0, 0), pygame.Rect(wall[0]*cell_size, wall[1]*cell_size, cell_size, cell_size))
@@ -139,7 +144,7 @@ class GridWorldEnv(gym.Env):
         pygame.draw.rect(canvas, (0, 255, 0), pygame.Rect(self.goal[0]*cell_size, self.goal[1]*cell_size, cell_size, cell_size))
 
         #Draw ghost
-        pygame.draw.circle(canvas, (255, 0, 0), (int(self.ghost_pos[0]*cell_size + cell_size/2), int(self.ghost_pos[1]*cell_size * cell_size/2)), int(cell_size/3))
+        pygame.draw.circle(canvas, (255, 0, 0), (int(self.ghost_pos[0]*cell_size + cell_size/2), int(self.ghost_pos[1]*cell_size + cell_size/2)), int(cell_size/3))
 
         #Draw agent
         pygame.draw.circle(canvas, (0, 0, 255), (int(self.agent_pos[0]*cell_size + cell_size/2), int(self.agent_pos[1]*cell_size + cell_size/2)), int(cell_size / 3))
@@ -175,7 +180,10 @@ class GridWorldEnv(gym.Env):
         x = int(self.agent_pos[0])
         y = int(self.agent_pos[1])
 
-        return np.array([x,y, self.is_wall(x,y+1),self.is_wall(x,y-1),self.is_wall(x+1,y),self.is_wall(x-1,y), len(self.ghost_path)])
+        dx = self.agent_pos[0] - self.ghost_pos[0]
+        dy = self.agent_pos[1] - self.ghost_pos[1]
+
+        return np.array([x,y, self.is_wall(x,y+1),self.is_wall(x,y-1),self.is_wall(x+1,y),self.is_wall(x-1,y), dx, dy])
 
     def get_neighbors(self, position):
         x, y = position
@@ -219,7 +227,7 @@ class GridWorldEnv(gym.Env):
     
     def move_ghost(self):
         start = (int(self.ghost_pos[0]),int(self.ghost_pos[1]))
-        goal = (int(self.agent_pos[0]),int(self.agent_pos(1)))
+        goal = (int(self.agent_pos[0]),int(self.agent_pos[1]))
 
         self.ghost_path = self.bfs_path(start, goal)
 
